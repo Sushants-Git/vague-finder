@@ -1,0 +1,27 @@
+{
+  "name": "vague-search",
+  "version": "1.0.0",
+  "description": "A better way to search!!",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sushants-Git/vague-search.git"
+  },
+  "keywords": [
+    "fuzzySearch",
+    "ai",
+    "fuzzy"
+  ],
+  "author": "Sushants-Git",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Sushants-Git/vague-search/issues"
+  },
+  "homepage": "https://github.com/Sushants-Git/vague-search#readme",
+  "dependencies": {
+    "@xenova/transformers": "^2.15.0"
+  }
+}
