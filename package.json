@@ -1,5 +1,5 @@
 {
-  "name": "vague-search",
+  "name": "vague-finder",
   "version": "1.0.0",
   "description": "A better way to search!!",
   "main": "index.js",
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Sushants-Git/vague-search.git"
+    "url": "git+https://github.com/Sushants-Git/vague-finder.git"
   },
   "keywords": [
     "fuzzySearch",
@@ -18,9 +18,9 @@
   "author": "Sushants-Git",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Sushants-Git/vague-search/issues"
+    "url": "https://github.com/Sushants-Git/vague-finder/issues"
   },
-  "homepage": "https://github.com/Sushants-Git/vague-search#readme",
+  "homepage": "https://github.com/Sushants-Git/vague-finder#readme",
   "dependencies": {
     "@xenova/transformers": "^2.15.0"
   }

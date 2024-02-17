@@ -36,7 +36,7 @@ async function loadModel() {
 }
 
 function modelNotLoadedErrorMessage() {
-  console.log("Model has not been loaded, use vagueSearch.loadModel()");
+  console.log("Model has not been loaded, use vagueFinder.loadModel()");
 }
 
 const classify = async (sentenceOne, sentenceTwo) => {
@@ -148,7 +148,7 @@ function compareTwoSentences(sentenceOne, sentenceTwo) {
   return classify(sentenceOne, sentenceTwo);
 }
 
-const vagueSearch = {
+const vagueFinder = {
   loadModel: loadModel,
   getProgress: getProgress,
   compareTwoSentences: compareTwoSentences,
@@ -156,4 +156,4 @@ const vagueSearch = {
   arrayInOrder: arrayInOrder,
 };
 
-export { vagueSearch };
+export { vagueFinder };
