@@ -1,1 +1,1 @@
-# fuzzy-search-ai
+# vague-search
