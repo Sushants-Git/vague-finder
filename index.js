@@ -40,7 +40,6 @@ function modelNotLoadedErrorMessage() {
 }
 
 const classify = async (sentenceOne, sentenceTwo) => {
-
   let embedding1 = await model(sentenceOne, {
     pooling: "mean",
     normalize: true,
@@ -94,9 +93,10 @@ const compareSentenceToArray = async (sentence, array) => {
     modelNotLoadedErrorMessage();
     return;
   }
+  array = [...array] //Creating a copy, so that we don't alter the original;
   for (let i = 0; i < array.length; i++) {
     await classify(sentence, array[i]).then(({ sentenceTwo, alike }) => {
-      array[i] = { senteceTwo: sentenceTwo, alike: alike };
+      array[i] = { sentenceTwo: sentenceTwo, alike: alike };
     });
   }
 
@@ -111,6 +111,7 @@ const arrayInOrder = async (sentence, array) => {
     modelNotLoadedErrorMessage();
     return;
   }
+  array = [...array] //Creating a copy, so that we don't alter the original;
   const { sentenceOne, array: returnedArray } = await compareSentenceToArray(
     sentence,
     array,
