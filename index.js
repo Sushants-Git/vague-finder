@@ -70,34 +70,61 @@ function modelNotLoadedErrorMessage() {
 
 /**
  * Asynchronously classifies the similarity between two sentences using cosine similarity.
- *
+ * 
  * This function takes two sentences as input, converts them into embeddings using the model, and then calculates the cosine similarity between the embeddings.
- * The result is an object containing the two input sentences and the calculated similarity.
- *
+ * The result is an object containing the two input sentences, the calculated similarity, and the embedding of the first sentence.
+ * 
  * @async
  * @function
  * @param {string} sentenceOne - The first sentence to compare.
  * @param {string} sentenceTwo - The second sentence to compare.
- * @returns {Object} The result object containing the two input sentences and the calculated similarity.
- * @throws {Error} If the model has not been loaded. 
-*/
+ * @param {Array<number>} embedding1Cache - The cached embedding of the first sentence. If provided, this is used instead of calculating a new embedding.
+ * @param {boolean} doesCacheExist - Whether the cached embedding of the first sentence exists.
+ * @returns {Object} The result object containing the two input sentences, the calculated similarity, and the embedding of the first sentence.
+ * @throws {Error} If the model has not been loaded.
+ * 
+ * @example
+ * try {
+ *   const result = await classify("This is a sentence.", "This is another sentence.", null, false);
+ *   console.log(result);
+ * } catch (error) {
+ *   console.error(error);
+ * }
+ */
 
-const classify = async (sentenceOne, sentenceTwo) => {
+const classify = async (
+  sentenceOne,
+  sentenceTwo,
+  embedding1Cache,
+  doesCacheExist,
+) => {
   if (!model) {
     modelNotLoadedErrorMessage();
     return;
   }
-  let embedding1 = await model(sentenceOne, {
-    pooling: "mean",
-    normalize: true,
-  });
+
+  let tick = performance.now();
+  let embedding1 = null;
+
+  if (doesCacheExist) {
+    embedding1 = embedding1Cache;
+  } else {
+    embedding1 = await model(sentenceOne, {
+      pooling: "mean",
+      normalize: true,
+    });
+  }
 
   let embedding2 = await model(sentenceTwo, {
     pooling: "mean",
     normalize: true,
   });
 
-  embedding1 = Array.from(embedding1.data);
+  let tock = performance.now();
+  console.log("time", tock - tick);
+  if (!doesCacheExist) {
+    embedding1 = Array.from(embedding1.data);
+  }
   embedding2 = Array.from(embedding2.data);
 
   const similarity = calculateCosineSimilarity(embedding1, embedding2);
@@ -128,22 +155,23 @@ const classify = async (sentenceOne, sentenceTwo) => {
     sentenceOne: sentenceOne,
     sentenceTwo: sentenceTwo,
     alike: result,
+    embedding1Cache: embedding1,
   };
 };
 
 /**
  * Asynchronously compares a sentence to an array of sentences using cosine similarity.
- * 
+ *
  * This function takes a sentence and an array of sentences as input. It compares the input sentence to each sentence in the array using the `classify` function, which calculates the cosine similarity between the sentences.
  * The result is an object containing the input sentence and an array of objects, each containing a sentence from the input array and the calculated similarity to the input sentence.
- * 
+ *
  * @async
  * @function
  * @param {string} sentence - The sentence to compare to the array of sentences.
  * @param {Array<string>} array - The array of sentences to compare to the input sentence.
  * @returns {Object} The result object containing the input sentence and an array of objects, each containing a sentence from the input array and the calculated similarity.
  * @throws {Error} If the model has not been loaded.
- * 
+ *
  * @example
  * try {
  *   const result = await compareSentenceToArray("This is a sentence.", ["This is another sentence.", "Yet another sentence."]);
@@ -158,9 +186,18 @@ const compareSentenceToArray = async (sentence, array) => {
     modelNotLoadedErrorMessage();
     return;
   }
+  let cache = null;
   array = [...array]; //Creating a copy, so that we don't alter the original;
   for (let i = 0; i < array.length; i++) {
-    const { sentenceTwo, alike } = await classify(sentence, array[i]);
+    const { sentenceTwo, alike, embedding1Cache } = await classify(
+      sentence,
+      array[i],
+      cache,
+      i !== 0,
+    );
+    if (i === 0) {
+      cache = embedding1Cache;
+    }
     array[i] = { sentenceTwo: sentenceTwo, alike: alike };
   }
 
@@ -172,17 +209,17 @@ const compareSentenceToArray = async (sentence, array) => {
 
 /**
  * Asynchronously compares a sentence to an array of sentences and returns the results in order of similarity.
- * 
+ *
  * This function takes a sentence and an array of sentences as input. It compares the input sentence to each sentence in the array using the `compareSentenceToArray` function, which calculates the cosine similarity between the sentences.
  * The result is an object containing the input sentence and an array of objects, each containing a sentence from the input array and the calculated similarity. The array is sorted in descending order of similarity.
- * 
+ *
  * @async
  * @function
  * @param {string} sentence - The sentence to compare to the array of sentences.
  * @param {Array<string>} array - The array of sentences to compare to the input sentence.
  * @returns {Object} The result object containing the input sentence and an array of objects, each containing a sentence from the input array and the calculated similarity, sorted in descending order of similarity.
  * @throws {Error} If the model has not been loaded.
- * 
+ *
  * @example
  * try {
  *   const result = await arrayInOrder("This is a sentence.", ["This is another sentence.", "Yet another sentence."]);
@@ -200,7 +237,7 @@ const arrayInOrder = async (sentence, array) => {
   array = [...array]; //Creating a copy, so that we don't alter the original;
   const { sentenceOne, array: returnedArray } = await compareSentenceToArray(
     sentence,
-    array
+    array,
   );
 
   returnedArray.sort((a, b) => {
@@ -221,12 +258,12 @@ const arrayInOrder = async (sentence, array) => {
 
 /**
  * Returns the progress of the model loading process.
- * 
+ *
  * If the model is loading, it returns an Object that represents the progress of the model loading process.
- * 
+ *
  * @function
  * @returns {Object} The progress of the model loading process.
- * 
+ *
  * @example
  * try {
  *   const progress = getProgress();
@@ -236,21 +273,21 @@ const arrayInOrder = async (sentence, array) => {
  * }
  */
 
-function getProgress() { 
+function getProgress() {
   return progress;
 }
 
 /**
  * Compares two sentences using the loaded model.
- * 
+ *
  * This function takes two sentences as input and uses the `classify` function to compare them. If the model has not been loaded, it throws an error.
- * 
+ *
  * @function
  * @param {string} sentenceOne - The first sentence to compare.
  * @param {string} sentenceTwo - The second sentence to compare.
  * @returns {Object} The result object containing the two input sentences and the calculated similarity.
  * @throws {Error} If the model has not been loaded.
- * 
+ *
  * @example
  * try {
  *   const result = compareTwoSentences("This is a sentence.", "This is another sentence.");
@@ -265,12 +302,13 @@ function compareTwoSentences(sentenceOne, sentenceTwo) {
     modelNotLoadedErrorMessage();
     return;
   }
-  return classify(sentenceOne, sentenceTwo);
+  const { alike } = classify(sentenceOne, sentenceTwo, null, false);
+  return { sentenceOne: sentenceOne, sentenceTwo: sentenceTwo, alike: alike };
 }
 
 /**
  * The `vagueFinder` object provides a set of methods for comparing sentences using a loaded model.
- * 
+ *
  * @namespace
  * @property {function} loadModel - Loads the model. See {@link loadModel}.
  * @property {function} getProgress - Returns the progress of the model loading process. See {@link getProgress}.
