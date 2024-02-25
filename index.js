@@ -70,19 +70,19 @@ function modelNotLoadedErrorMessage() {
 
 /**
  * Asynchronously classifies the similarity between two sentences using cosine similarity.
- * 
+ *
  * This function takes two sentences as input, converts them into embeddings using the model, and then calculates the cosine similarity between the embeddings.
  * The result is an object containing the two input sentences, the calculated similarity, and the embedding of the first sentence.
- * 
+ *
  * @async
  * @function
  * @param {string} sentenceOne - The first sentence to compare.
  * @param {string} sentenceTwo - The second sentence to compare.
  * @param {Array<number>} embedding1Cache - The cached embedding of the first sentence. If provided, this is used instead of calculating a new embedding.
- * @param {boolean} doesCacheExist - Whether the cached embedding of the first sentence exists.
+ * @param {boolean} doesCache1Exist - Whether the cached embedding of the first sentence exists.
  * @returns {Object} The result object containing the two input sentences, the calculated similarity, and the embedding of the first sentence.
  * @throws {Error} If the model has not been loaded.
- * 
+ *
  * @example
  * try {
  *   const result = await classify("This is a sentence.", "This is another sentence.", null, false);
@@ -96,7 +96,9 @@ const classify = async (
   sentenceOne,
   sentenceTwo,
   embedding1Cache,
-  doesCacheExist,
+  doesCache1Exist,
+  embedding2Cache,
+  doesCache2Exist,
 ) => {
   if (!model) {
     modelNotLoadedErrorMessage();
@@ -105,8 +107,9 @@ const classify = async (
 
   let tick = performance.now();
   let embedding1 = null;
+  let embedding2 = null;
 
-  if (doesCacheExist) {
+  if (doesCache1Exist) {
     embedding1 = embedding1Cache;
   } else {
     embedding1 = await model(sentenceOne, {
@@ -115,17 +118,23 @@ const classify = async (
     });
   }
 
-  let embedding2 = await model(sentenceTwo, {
-    pooling: "mean",
-    normalize: true,
-  });
+  if (doesCache2Exist) {
+    embedding2 = embedding2Cache;
+  } else {
+    embedding2 = await model(sentenceTwo, {
+      pooling: "mean",
+      normalize: true,
+    });
+  }
 
   let tock = performance.now();
   console.log("time", tock - tick);
-  if (!doesCacheExist) {
+  if (!doesCache1Exist) {
     embedding1 = Array.from(embedding1.data);
   }
-  embedding2 = Array.from(embedding2.data);
+  if (!doesCache2Exist) {
+    embedding2 = Array.from(embedding2.data);
+  }
 
   const similarity = calculateCosineSimilarity(embedding1, embedding2);
 
@@ -181,7 +190,7 @@ const classify = async (
  * }
  */
 
-const compareSentenceToArray = async (sentence, array) => {
+const compareSentenceToArray = async (sentence, array, doesCache2Exist) => {
   if (!model) {
     modelNotLoadedErrorMessage();
     return;
@@ -191,9 +200,11 @@ const compareSentenceToArray = async (sentence, array) => {
   for (let i = 0; i < array.length; i++) {
     const { sentenceTwo, alike, embedding1Cache } = await classify(
       sentence,
-      array[i],
+      array[i].sentenceTwo ? array[i].sentenceTwo : array[i],
       cache,
       i !== 0,
+      array[i].embedding ? array[i].embedding : null,
+      doesCache2Exist,
     );
     if (i === 0) {
       cache = embedding1Cache;
@@ -238,6 +249,7 @@ const arrayInOrder = async (sentence, array) => {
   const { sentenceOne, array: returnedArray } = await compareSentenceToArray(
     sentence,
     array,
+    false,
   );
 
   returnedArray.sort((a, b) => {
@@ -302,8 +314,62 @@ function compareTwoSentences(sentenceOne, sentenceTwo) {
     modelNotLoadedErrorMessage();
     return;
   }
-  const { alike } = classify(sentenceOne, sentenceTwo, null, false);
+  const { alike } = classify(
+    sentenceOne,
+    sentenceTwo,
+    null,
+    false,
+    null,
+    false,
+  );
   return { sentenceOne: sentenceOne, sentenceTwo: sentenceTwo, alike: alike };
+}
+
+async function getCached(array) {
+  if (!model) {
+    modelNotLoadedErrorMessage();
+    return;
+  }
+  array = [...array]; //Creating a copy, so that we don't alter the original;
+  let returnedArray = [];
+  for (let i = 0; i < array.length; i++) {
+    let embedding = await model(array[i], {
+      pooling: "mean",
+      normalize: true,
+    });
+    embedding = Array.from(embedding.data);
+    returnedArray[i] = { sentenceTwo: array[i], embedding: embedding };
+  }
+
+  return returnedArray;
+}
+
+async function cachedArrayInOrder(sentence, cachedArray) {
+  if (!model) {
+    modelNotLoadedErrorMessage();
+    return;
+  }
+  cachedArray = [...cachedArray]; //Creating a copy, so that we don't alter the original;
+  const { sentenceOne, array: returnedArray } = await compareSentenceToArray(
+    sentence,
+    cachedArray,
+    true,
+  );
+
+  returnedArray.sort((a, b) => {
+    if (a.alike > b.alike) {
+      return -1;
+    } else if (a.alike < b.alike) {
+      return 1;
+    } else {
+      return 0;
+    }
+  });
+
+  return {
+    sentenceOne: sentenceOne,
+    array: returnedArray,
+  };
 }
 
 /**
@@ -323,6 +389,8 @@ const vagueFinder = {
   compareTwoSentences: compareTwoSentences,
   compareSentenceToArray: compareSentenceToArray,
   arrayInOrder: arrayInOrder,
+  getCached: getCached,
+  cachedArrayInOrder: cachedArrayInOrder,
 };
 
 export { vagueFinder };
