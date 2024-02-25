@@ -69,23 +69,27 @@ function modelNotLoadedErrorMessage() {
 }
 
 /**
- * Asynchronously classifies the similarity between two sentences using cosine similarity.
+ * Asynchronously classifies the similarity between two sentences.
  *
- * This function takes two sentences as input, converts them into embeddings using the model, and then calculates the cosine similarity between the embeddings.
- * The result is an object containing the two input sentences, the calculated similarity, and the embedding of the first sentence.
+ * This function takes two sentences and their respective embeddings and cache flags as input.
+ * It calculates the embeddings for the sentences if they are not cached.
+ * Then, it calculates the cosine similarity between the two embeddings.
+ * It returns an object containing the two sentences, their similarity score, and the embedding of the first sentence.
  *
  * @async
  * @function
- * @param {string} sentenceOne - The first sentence to compare.
- * @param {string} sentenceTwo - The second sentence to compare.
- * @param {Array<number>} embedding1Cache - The cached embedding of the first sentence. If provided, this is used instead of calculating a new embedding.
- * @param {boolean} doesCache1Exist - Whether the cached embedding of the first sentence exists.
- * @returns {Object} The result object containing the two input sentences, the calculated similarity, and the embedding of the first sentence.
- * @throws {Error} If the model has not been loaded.
+ * @param {string} sentenceOne - The first sentence to be compared.
+ * @param {string} sentenceTwo - The second sentence to be compared.
+ * @param {Array<number>} embedding1Cache - The cached embedding for the first sentence.
+ * @param {boolean} doesCache1Exist - Flag indicating whether the embedding for the first sentence is cached.
+ * @param {Array<number>} embedding2Cache - The cached embedding for the second sentence.
+ * @param {boolean} doesCache2Exist - Flag indicating whether the embedding for the second sentence is cached.
+ * @throws {Error} If the model is not loaded, an error is thrown.
+ * @returns {Promise<Object>} A Promise that resolves to an object containing the two sentences, their similarity score, and the embedding of the first sentence.
  *
  * @example
  * try {
- *   const result = await classify("This is a sentence.", "This is another sentence.", null, false);
+ *   const result = await classify(sentence1, sentence2, embedding1Cache, true, embedding2Cache, false);
  *   console.log(result);
  * } catch (error) {
  *   console.error(error);
@@ -98,9 +102,9 @@ const classify = async (
   embedding1Cache,
   doesCache1Exist,
   embedding2Cache,
-  doesCache2Exist,
+  doesCache2Exist
 ) => {
-  if (!model) {
+  if (!doesCache2Exist && !model) {
     modelNotLoadedErrorMessage();
     return;
   }
@@ -169,29 +173,31 @@ const classify = async (
 };
 
 /**
- * Asynchronously compares a sentence to an array of sentences using cosine similarity.
+ * Asynchronously compares a sentence to an array of sentences.
  *
- * This function takes a sentence and an array of sentences as input. It compares the input sentence to each sentence in the array using the `classify` function, which calculates the cosine similarity between the sentences.
- * The result is an object containing the input sentence and an array of objects, each containing a sentence from the input array and the calculated similarity to the input sentence.
+ * This function takes a sentence and an array of sentences, and a cache flag as input.
+ * It calculates the similarity between the input sentence and each sentence in the array.
+ * It returns an object containing the input sentence and the array of sentences with their similarity scores.
  *
  * @async
  * @function
- * @param {string} sentence - The sentence to compare to the array of sentences.
- * @param {Array<string>} array - The array of sentences to compare to the input sentence.
- * @returns {Object} The result object containing the input sentence and an array of objects, each containing a sentence from the input array and the calculated similarity.
- * @throws {Error} If the model has not been loaded.
+ * @param {string} sentence - The sentence to be compared.
+ * @param {Array<string|Object>} array - The array of sentences to be compared. Each element can be a string or an object with `sentenceTwo` and `embedding` properties.
+ * @param {boolean} doesCache2Exist - Flag indicating whether the embeddings for the sentences in the array are cached.
+ * @throws {Error} If the model is not loaded, an error is thrown.
+ * @returns {Promise<Object>} A Promise that resolves to an object containing the input sentence and the array of sentences with their similarity scores.
  *
  * @example
  * try {
- *   const result = await compareSentenceToArray("This is a sentence.", ["This is another sentence.", "Yet another sentence."]);
+ *   const result = await compareSentenceToArray(sentence, array, true);
  *   console.log(result);
  * } catch (error) {
  *   console.error(error);
  * }
  */
 
-const compareSentenceToArray = async (sentence, array, doesCache2Exist) => {
-  if (!model) {
+const compareSentenceToArray = async (sentence, array, doesCache2Exist=false) => {
+  if (!doesCache2Exist && !model) {
     modelNotLoadedErrorMessage();
     return;
   }
@@ -204,7 +210,7 @@ const compareSentenceToArray = async (sentence, array, doesCache2Exist) => {
       cache,
       i !== 0,
       array[i].embedding ? array[i].embedding : null,
-      doesCache2Exist,
+      doesCache2Exist
     );
     if (i === 0) {
       cache = embedding1Cache;
@@ -249,18 +255,10 @@ const arrayInOrder = async (sentence, array) => {
   const { sentenceOne, array: returnedArray } = await compareSentenceToArray(
     sentence,
     array,
-    false,
+    false
   );
 
-  returnedArray.sort((a, b) => {
-    if (a.alike > b.alike) {
-      return -1;
-    } else if (a.alike < b.alike) {
-      return 1;
-    } else {
-      return 0;
-    }
-  });
+  returnedArray.sort((a, b) => b.alike - a.alike);
 
   return {
     sentenceOne: sentenceOne,
@@ -314,16 +312,42 @@ function compareTwoSentences(sentenceOne, sentenceTwo) {
     modelNotLoadedErrorMessage();
     return;
   }
+
   const { alike } = classify(
     sentenceOne,
     sentenceTwo,
     null,
     false,
     null,
-    false,
+    false
   );
-  return { sentenceOne: sentenceOne, sentenceTwo: sentenceTwo, alike: alike };
+
+  return { sentenceOne, sentenceTwo, alike };
 }
+
+/**
+ * Asynchronously generates embeddings for an array of sentences.
+ *
+ * This function takes an array of sentences as input.
+ * It generates embeddings for each sentence in the array using the model.
+ * It returns an array of objects, each containing a sentence and its corresponding embedding.
+ *
+ * Note: This function creates a copy of the input array to avoid altering the original.
+ *
+ * @async
+ * @function
+ * @param {Array<string>} array - The array of sentences for which embeddings are to be generated.
+ * @throws {Error} If the model is not loaded, an error is thrown.
+ * @returns {Promise<Array<Object>>} A Promise that resolves to an array of objects, each containing a sentence and its corresponding embedding.
+ *
+ * @example
+ * try {
+ *   const result = await getCached(array);
+ *   console.log(result);
+ * } catch (error) {
+ *   console.error(error);
+ * }
+ */
 
 async function getCached(array) {
   if (!model) {
@@ -344,27 +368,89 @@ async function getCached(array) {
   return returnedArray;
 }
 
-async function cachedArrayInOrder(sentence, cachedArray) {
-  if (!model) {
-    modelNotLoadedErrorMessage();
-    return;
-  }
-  cachedArray = [...cachedArray]; //Creating a copy, so that we don't alter the original;
+/**
+ * Compares a sentence to an array of cached sentences.
+ *
+ * @async
+ * @function
+ * @param {string} sentence - The sentence to compare.
+ * @param {Array} cachedArray - The array of cached sentences to compare against.
+ * @returns {Promise<Object>} An object containing the original sentence and an array of comparison results.
+ *
+ * @example
+ * const result = await cachedCompareSentenceToArray('Hello world', cachedSentences);
+ * console.log(result);
+ */
+
+async function cachedCompareSentenceToArray(sentence, cachedArray) {
+  cachedArray.map((item) => {
+    if (!item.sentenceTwo) {
+      throw new Error(
+        "Each item in the cachedArray must have a sentenceTwo property"
+      );
+    }
+    return {
+      sentenceTwo: item.sentenceTwo,
+      embedding: [...item.embedding],
+    };
+  });
   const { sentenceOne, array: returnedArray } = await compareSentenceToArray(
     sentence,
     cachedArray,
-    true,
+    true
   );
 
-  returnedArray.sort((a, b) => {
-    if (a.alike > b.alike) {
-      return -1;
-    } else if (a.alike < b.alike) {
-      return 1;
-    } else {
-      return 0;
+  return {
+    sentenceOne: sentenceOne,
+    array: returnedArray,
+  };
+}
+
+/**
+ * Asynchronously sorts an array of sentences based on their similarity to a given sentence.
+ *
+ * This function takes a sentence and an array of sentences as input.
+ * It calculates the similarity between the input sentence and each sentence in the array.
+ * It then sorts the array based on the similarity scores in descending order.
+ * It returns an object containing the input sentence and the sorted array of sentences with their similarity scores.
+ *
+ * This function differs from `arrayInOrder` in that it expects the array of sentences to already have cached embeddings.
+ * This function is useful when you have a large array of sentences and you want to cache their embeddings to avoid recalculating them each time you compare a new sentence to the array.
+ *
+ * @async
+ * @function
+ * @param {string} sentence - The sentence to be compared.
+ * @param {Array<string|Object>} cachedArray - The array of sentences to be compared. Each element is a object with `sentenceTwo` and `embedding` properties.
+ * @returns {Promise<Object>} A Promise that resolves to an object containing the input sentence and the sorted array of sentences with their similarity scores.
+ *
+ * @example
+ * try {
+ *   const result = await cachedArrayInOrder(sentence, array);
+ *   console.log(result);
+ * } catch (error) {
+ *   console.error(error);
+ * }
+ */
+
+async function cachedArrayInOrder(sentence, cachedArray) {
+  cachedArray.map((item) => {
+    if (!item.sentenceTwo) {
+      throw new Error(
+        "Each item in the cachedArray must have a sentenceTwo property"
+      );
     }
+    return {
+      sentenceTwo: item.sentenceTwo,
+      embedding: [...item.embedding],
+    };
   });
+  const { sentenceOne, array: returnedArray } = await compareSentenceToArray(
+    sentence,
+    cachedArray,
+    true
+  );
+
+  returnedArray.sort((a, b) => b.alike - a.alike);
 
   return {
     sentenceOne: sentenceOne,
@@ -381,16 +467,20 @@ async function cachedArrayInOrder(sentence, cachedArray) {
  * @property {function} compareTwoSentences - Compares two sentences using the loaded model. See {@link compareTwoSentences}.
  * @property {function} compareSentenceToArray - Compares a sentence to an array of sentences using the loaded model. See {@link compareSentenceToArray}.
  * @property {function} arrayInOrder - Compares a sentence to an array of sentences using the loaded model and returns the results in order of similarity. See {@link arrayInOrder}.
+ * @property {function} getCached - Returns a cached array. See {@link getCached}.
+ * @property {function} cachedCompareSentenceToArray - Compare a sentence to an array of cached sentences. See {@link cachedCompareSentenceToArray}.
+ * @property {function} cachedArrayInOrder - Compares a sentence to an array of cached senteces and returns the results in order of similarity. See {@link cachedArrayInOrder}.
  */
 
 const vagueFinder = {
-  loadModel: loadModel,
-  getProgress: getProgress,
-  compareTwoSentences: compareTwoSentences,
-  compareSentenceToArray: compareSentenceToArray,
-  arrayInOrder: arrayInOrder,
-  getCached: getCached,
-  cachedArrayInOrder: cachedArrayInOrder,
+  loadModel,
+  getProgress,
+  compareTwoSentences,
+  compareSentenceToArray,
+  arrayInOrder,
+  getCached,
+  cachedCompareSentenceToArray,
+  cachedArrayInOrder,
 };
 
 export { vagueFinder };
