@@ -1,6 +1,6 @@
 {
   "name": "vague-finder",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A better way to search!!",
   "main": "index.js",
   "scripts": {
