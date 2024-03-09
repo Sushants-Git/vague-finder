@@ -109,7 +109,6 @@ const classify = async (
     return;
   }
 
-  let tick = performance.now();
   let embedding1 = null;
   let embedding2 = null;
 
@@ -131,8 +130,6 @@ const classify = async (
     });
   }
 
-  let tock = performance.now();
-  console.log("time", tock - tick);
   if (!doesCache1Exist) {
     embedding1 = Array.from(embedding1.data);
   }
@@ -141,8 +138,6 @@ const classify = async (
   }
 
   const similarity = calculateCosineSimilarity(embedding1, embedding2);
-
-  // console.log(similarity);
 
   let result = similarity;
 
@@ -196,7 +191,11 @@ const classify = async (
  * }
  */
 
-const compareSentenceToArray = async (sentence, array, doesCache2Exist=false) => {
+const compareSentenceToArray = async (
+  sentence,
+  array,
+  doesCache2Exist = false
+) => {
   if (!doesCache2Exist && !model) {
     modelNotLoadedErrorMessage();
     return;
@@ -459,6 +458,194 @@ async function cachedArrayInOrder(sentence, cachedArray) {
 }
 
 /**
+ * Asynchronously gets the top results from a list of sentences based on their similarity to a given sentence.
+ * This function is different from `getArrayInOrder` as it limits the results to the top 'numberOfResults' items.
+ *
+ * @async
+ * @param {string} sentence - The sentence to compare against.
+ * @param {Array<string>} array - The array of sentences to compare.
+ * @param {number} numberOfResults - The number of top results to return. This parameter constrains the size of the returned array.
+ * @throws {Error} Will throw an error if the model is not loaded or if numberOfResults is less than or equal to 0.
+ * @returns {Promise<Object>} A promise that resolves to an object containing the original sentence and an array of the top results.
+ * The top results array contains objects with the properties 'sentenceTwo' and 'alike', where 'sentenceTwo' is a sentence from the input array and 'alike' is its similarity score to the original sentence.
+ */
+
+async function getTop(sentence, array, numberOfResults) {
+  if (!model) {
+    modelNotLoadedErrorMessage();
+    return;
+  }
+
+  if (numberOfResults <= 0) {
+    throw new Error("numberOfResults is either 0 or less than 0");
+  }
+
+  const arrayCopy = [...array];
+  numberOfResults = Math.min(numberOfResults, arrayCopy.length);
+  const list = new LinkedListInAlikeOrder(numberOfResults);
+  let cache = null;
+
+  for (let i = 0; i < array.length; i++) {
+    const { sentenceTwo, alike, embedding1Cache } = await classify(
+      sentence,
+      array[i],
+      cache,
+      i !== 0,
+      null,
+      false
+    );
+    if (i === 0) {
+      cache = embedding1Cache;
+    }
+    list.addNode({ sentenceTwo: sentenceTwo, alike: alike });
+  }
+
+  const resultantArray = list.getArray();
+  return {
+    sentenceOne: sentence,
+    array: resultantArray,
+  };
+}
+
+/**
+ * Class representing a doubly linked list with a maximum length.
+ */
+class LinkedListInAlikeOrder {
+  head = null;
+  tail = null;
+  length = 0;
+  maxLength = 0;
+
+  /**
+   * Create a LinkedListInAlikeOrder.
+   * @param {number} maxLength - The maximum length of the linked list.
+   */
+  constructor(maxLength) {
+    this.maxLength = maxLength;
+  }
+
+  /**
+   * Create a new node.
+   * @param {Object} obj - The object to be added to the node. The object should have two properties: 'alike' and 'sentenceTwo'.
+   * @return {Object} The new node.
+   * @private
+   */
+  _node(obj) {
+    return {
+      ...obj,
+      next: null,
+      prev: null,
+    };
+  }
+
+  /**
+   * Convert the linked list to an array.
+   * @return {Array<Object>} The array representation of the linked list.
+   */
+  getArray() {
+    let currentNode = this.head;
+    const array = [];
+
+    while (currentNode !== null) {
+      const { alike, sentenceTwo } = currentNode;
+      array.push({ alike, sentenceTwo });
+      currentNode = currentNode.next;
+    }
+
+    return array;
+  }
+
+  /**
+   * Get the index where the new node should be inserted.
+   * @param {number} alike - The 'alike' value of the new node.
+   * @return {number} The index where the new node should be inserted.
+   * @private
+   */
+  _getIndex(alike) {
+    let count = 0;
+    let currentNode = this.head;
+    while (count < this.maxLength) {
+      if (currentNode === null || currentNode.alike <= alike) {
+        return count;
+      }
+      currentNode = currentNode.next;
+      count++;
+    }
+    return this.maxLength;
+  }
+
+  /**
+   * Add a new node to the linked list.
+   * @param {Object} obj - The object to be added as a new node.
+   */
+  addNode(obj) {
+    if (this.head === null) {
+      this.head = this.tail = this._node(obj);
+      this.length++;
+      this._audit();
+      return;
+    }
+    let index = this._getIndex(obj.alike);
+    this._insertAtIndex(index, obj);
+  }
+
+  /**
+   * Insert a new node at a specific index.
+   * @param {number} index - The index where the new node should be inserted.
+   * @param {Object} obj - The object to be added as a new node.
+   * @private
+   */
+  _insertAtIndex(index, obj) {
+    const newNode = this._node(obj);
+    let currentNode = this.head;
+    if (index === 0) {
+      newNode.next = this.head;
+      this.head.prev = newNode;
+      this.head = newNode;
+    } else if (index === this.length) {
+      this.tail.next = newNode;
+      newNode.prev = this.tail;
+      this.tail = newNode;
+    } else {
+      let count = 0;
+      while (count + 1 < index) {
+        currentNode = currentNode.next;
+        count++;
+      }
+      newNode.next = currentNode.next;
+      currentNode.next.prev = newNode;
+      newNode.prev = currentNode;
+      currentNode.next = newNode;
+    }
+    this.length++;
+    this._audit();
+  }
+
+  /**
+   * Check if the linked list is longer than the maximum length.
+   * If it is, delete the last node.
+   * @private
+   */
+  _audit() {
+    if (this.length > this.maxLength) {
+      this._deletelastNode();
+    }
+  }
+
+  /**
+   * Delete the last node of the linked list.
+   * @private
+   */
+  _deleteLastNode() {
+    const newTail = this.tail.prev;
+    this.tail.prev = null;
+    newTail.next = null;
+    this.tail = newTail;
+    this.length--;
+  }
+}
+
+/**
  * The `vagueFinder` object provides a set of methods for comparing sentences using a loaded model.
  *
  * @namespace
@@ -470,6 +657,7 @@ async function cachedArrayInOrder(sentence, cachedArray) {
  * @property {function} getCached - Returns a cached array. See {@link getCached}.
  * @property {function} cachedCompareSentenceToArray - Compare a sentence to an array of cached sentences. See {@link cachedCompareSentenceToArray}.
  * @property {function} cachedArrayInOrder - Compares a sentence to an array of cached senteces and returns the results in order of similarity. See {@link cachedArrayInOrder}.
+ * @property {function} getTop - Compares a sentence to an array of sentences using the loaded model and returns the top 'numberOfResults' results. The number of results is constrained by the 'numberOfResults' parameter. See {@link getTop}.
  */
 
 const vagueFinder = {
@@ -481,6 +669,7 @@ const vagueFinder = {
   getCached,
   cachedCompareSentenceToArray,
   cachedArrayInOrder,
+  getTop,
 };
 
 export { vagueFinder };

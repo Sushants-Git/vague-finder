@@ -115,6 +115,18 @@ result.array.forEach((comparison) => {
 });
 ```
 
+### Getting Top Similar Sentences
+
+To compare a sentence to an array of sentences and get the top similar sentences, use the `getTop` method. This method takes a sentence, an array of sentences, and the number of top results to return as input. It returns an object containing the input sentence and an array of objects, each containing a sentence from the input array and the calculated similarity, sorted in descending order of similarity.
+
+```js
+const sentences = ["This is a sentence.", "This is another sentence.", "Yet another sentence."];
+const result = await vagueFinder.getTop("This is a sentence.", sentences, 2);
+result.array.forEach((comparison) => {
+  console.log(`The similarity between "${result.sentenceOne}" and "${comparison.sentenceTwo}" is ${comparison.alike}.`);
+});
+```
+
 
 ## API
 
@@ -149,6 +161,10 @@ Compares a sentence to a cached array of sentences using the loaded model. Retur
 `cachedArrayInOrder(sentence, cachedArray)`
 
 Compares a sentence to a cached array of sentences using the loaded model and sorts the results in descending order of similarity. Returns an object containing the input sentence and an array of objects, each containing a sentence from the input array and the calculated similarity. Throws an error if the model has not been loaded or if any item in the cached array does not have a `sentenceTwo` property.
+
+`getTop(sentence, array, numberOfResults)`
+
+Compares a sentence to an array of sentences using the loaded model and sorts the results in descending order of similarity. Returns an object containing the input sentence and an array of objects, each containing a sentence from the input array and the calculated similarity. The number of results returned is limited by the `numberOfResults` parameter. Throws an error if the model has not been loaded or if `numberOfResults` is less than or equal to 0.
 
 
 ## Contributing
