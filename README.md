@@ -15,6 +15,8 @@ npm install vagueFinder
 ### Example
 
 ```js
+import { vagueFinder } from 'vague-finder';
+
 await vagueFinder.loadModel();
 
 const result = await vagueFinder.compareTwoSentences(
