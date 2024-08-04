@@ -7,7 +7,7 @@
 Install `vagueFinder` using npm:
 
 ```bash
-npm install vagueFinder
+npm install vague-finder
 ```
 
 ## Usage
