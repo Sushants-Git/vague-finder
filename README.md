@@ -12,7 +12,7 @@ npm install vague-finder
 
 ## Usage
 
-Prefer a video tutorial? Watch this [overview video](https://www.youtube.com/watch?v=r6YgPEAnWqc) for a quick start.
+Prefer a video tutorial? Watch this [overview video](https://www.youtube.com/watch?v=NeF0qLB2EJY) for a quick start.
 
 ### Example
 
