@@ -1,6 +1,6 @@
 # vague-finder
 
-`vagueFinder` is a simple and easy to use package for sentences similarity operations. Was mainly created to be used in searching operations.
+`vagueFinder` is a simple and easy-to-use package for sentence similarity operations, primarily created for searching operations.
 
 ## Installation
 
@@ -11,6 +11,8 @@ npm install vagueFinder
 ```
 
 ## Usage
+
+Prefer a video tutorial? Watch this [overview video](https://www.youtube.com/watch?v=r6YgPEAnWqc) for a quick start.
 
 ### Example
 
