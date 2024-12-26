@@ -1,6 +1,10 @@
 # vague-finder
 
-`vagueFinder` is a simple and easy-to-use package for sentence similarity operations, primarily created for searching operations.
+`vagueFinder` is a simple and easy-to-use package for sentence similarity operations, primarily created for searching operations. (No API Key needed)
+
+You can try out a demo at [Vauge Finder Demo](https://demo-vague-finder.netlify.app/)
+
+![untitled](https://github.com/user-attachments/assets/a39e686b-e8f6-4490-a97a-dca11aefef95)
 
 ## Installation
 
